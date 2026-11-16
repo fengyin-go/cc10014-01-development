@@ -7,6 +7,11 @@ from __future__ import annotations
 from typing import Any
 
 from app.seed import SEED_ROWS
+from app.seed_query import source_rows
+
+# 查询执行链路的内部表：可以由 rows() 读取，但不计入业务模块清单和运营概览，
+# 避免把“查询结果 / 字段台账 / 源记录”当成新的业务模块展示。
+INTERNAL_MODULES = {"query_result", "query_field_ledger", "query_source"}
 
 
 class Store:
@@ -14,9 +19,14 @@ class Store:
         self._tables: dict[str, list[dict[str, Any]]] = {
             name: [dict(row) for row in rows] for name, rows in SEED_ROWS.items()
         }
+        # 查询执行链路的数据：源记录、查询结果与查询字段台账。
+        # 源记录单独存表，避免把明细数组塞进数据源列表响应当中。
+        self._tables["query_source"] = source_rows()
+        self._tables.setdefault("query_result", [])
+        self._tables.setdefault("query_field_ledger", [])
 
     def module_names(self) -> list[str]:
-        return sorted(self._tables)
+        return sorted(name for name in self._tables if name not in INTERNAL_MODULES)
 
     def rows(self, module: str) -> list[dict[str, Any]]:
         return self._tables.setdefault(module, [])

@@ -13,6 +13,8 @@ class PageResult(BaseModel, Generic[T]):
     total: int
     page: int = 1
     size: int = 20
+    # 结果清单的翻页快照：把首次响应里的值回传，可避免翻页期间新增记录造成重复。
+    snapshot: int | None = None
 
 
 class ActionResult(BaseModel):
@@ -26,6 +28,21 @@ class EntryPayload(BaseModel):
 
     values: dict[str, Any] = Field(default_factory=dict)
     remark: str | None = None
+
+
+class FlexiblePayload(EntryPayload):
+    """兼容扁平提交：既支持 {"values": {...}}，也支持把业务字段直接放在顶层。
+
+    查询执行入口会被前端、脚本和下游系统分别调用，扁平提交更省一层包装；
+    顶层字段会合并进 values，显式 values 里的同名字段优先。
+    """
+
+    model_config = {"extra": "allow"}
+
+    def all_values(self) -> dict[str, Any]:
+        merged = {key: value for key, value in self.model_extra.items()} if self.model_extra else {}
+        merged.update(self.values)
+        return merged
 
 
 

@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import ROUTERS
+from app.routers import EXTRA_ROUTERS, ROUTERS
 from app.store import store
 
 app = FastAPI(title="数据服务编排发布平台", version="1.0.0")
@@ -24,6 +24,9 @@ app.add_middleware(
 
 for module in ROUTERS:
     app.include_router(module.router)
+for extra in EXTRA_ROUTERS:
+    if extra is not None:
+        app.include_router(extra)
 
 
 @app.get("/api/health")

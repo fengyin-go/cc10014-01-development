@@ -19,10 +19,17 @@ from app.routers import gateway as router_gateway
 from app.routers import schema as router_schema
 from app.routers import datasource as router_datasource
 from app.routers import query as router_query
+from app.routers import query_result as router_query_result
 from app.routers import cleanse as router_cleanse
 from app.routers import log as router_log
 from app.routers import mock as router_mock
 from app.routers import backup as router_backup
 from app.routers import notify as router_notify
 
-ROUTERS = [router_service, router_flow, router_ratelimit, router_auth, router_monitor, router_consumer, router_version, router_cache, router_transform, router_gateway, router_schema, router_datasource, router_query, router_cleanse, router_log, router_mock, router_backup, router_notify]
+ROUTERS = [router_service, router_flow, router_ratelimit, router_auth, router_monitor, router_consumer, router_version, router_cache, router_transform, router_gateway, router_schema, router_datasource, router_query, router_query_result, router_cleanse, router_log, router_mock, router_backup, router_notify]
+
+# 路由模块可能暴露多个 router（例如查询结果与查询字段台账共用一个文件）。
+EXTRA_ROUTERS = [
+    getattr(router_query_result, "ledger_router", None),
+    getattr(router_query_result, "contract_router", None),
+]

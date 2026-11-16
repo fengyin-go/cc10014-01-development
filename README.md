@@ -62,11 +62,48 @@ npm run dev
 | 接口文档 | `schema` | 接口定义 | 定义编号、关联服务、请求方法 |
 | 数据源配置 | `datasource` | 数据源连接 | 连接编号、连接类型、接入地址 |
 | 数据查询 | `query` | 查询定义 | 定义编号、关联数据源、查询模板 |
+| 查询结果 | `queryResult` | 查询结果记录 | 运行编号、参数快照、结果字段 |
+| 查询字段台账 | `query-field-ledger` | 查询字段 | 台账编号、字段名称、字段来源 |
 | 数据清洗 | `cleanse` | 清洗规则 | 规则编号、关联数据集、空值策略 |
 | 调用日志 | `log` | 日志记录 | 记录编号、调用服务、请求时间 |
 | 模拟数据 | `mock` | 模拟规则 | 规则编号、关联服务、触发条件 |
 | 数据备份 | `backup` | 备份策略 | 策略编号、目标服务、备份周期 |
 | 事件通知 | `notify` | 通知规则 | 规则编号、触发事件、通知渠道 |
+
+## 查询执行链路
+
+`数据查询`（定义） → `查询结果`（一次运行的结果记录） → `查询字段台账`（字段清单）。
+
+1. 执行时解析查询模板（`{{参数}}` / `${参数}` / `:参数` / `{参数}` 占位），
+   按定义里的参数默认值与本次显式参数做绑定，再从数据源读取源记录。
+2. 结果字段按“定义的结果字段 → 模板 SELECT 投影 → 源记录全部字段”的顺序投影，
+   同时写入查询字段台账，供导出和下游“查询结果契约”读取同一份字段清单。
+3. 每次执行冻结参数快照、结果字段、排序规则和定义版本；翻页只按 `run_id` 取记录，
+   翻页期间修改查询定义不会影响已生成的结果，重新执行（`action=重新执行`）才用新口径。
+4. 同一份“定义 + 参数快照 + 定义版本”的并发重复提交只生效一次；也可用
+   `request_id` / `idempotency_key` 显式指定幂等键。
+
+常用入口（`<定义>` 可以是数字 id 或 `QUER-0003` 这样的定义编号）：
+
+```bash
+# 执行查询，生成结果记录与字段台账
+curl -X POST http://127.0.0.1:8000/api/query-result/execute \
+  -H 'Content-Type: application/json' \
+  -d '{"values":{"定义编号":"QUER-0003","parameters":{"order_id":"ORD-1001"}}}'
+
+# 按运行快照分页读取结果记录（不传 size 时使用定义里的分页大小）
+curl 'http://127.0.0.1:8000/api/query-result/RUN-000001/page?page=2'
+
+# 按查询定义复核结果字段、分页记录与字段台账
+curl -X POST http://127.0.0.1:8000/api/query-result/RUN-000001/verify
+
+# 读取字段台账 / 结果数据集 / 导出
+curl 'http://127.0.0.1:8000/api/query-field-ledger?definition_no=QUER-0003'
+curl 'http://127.0.0.1:8000/api/query-result/RUN-000001/dataset'
+curl 'http://127.0.0.1:8000/api/query-result/export'
+```
+
+验收用例：`cd backend && .venv/bin/python -m unittest tests.test_query_result -v`
 
 ## 约定
 
